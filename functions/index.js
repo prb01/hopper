@@ -7,13 +7,6 @@ const stripe = Stripe(process.env.STRIPE_SECRET_KEY);
 const stripeWebhook = require("stripe")(process.env.STRIPE_WEBHOOK_KEY);
 const endpointSecret = process.env.STRIPE_SIGNING_KEY;
 
-console.log({
-  STRIPE_SECRET_KEY: process.env.STRIPE_SECRET_KEY,
-  STRIPE_WEBHOOK_KEY: process.env.STRIPE_WEBHOOK_KEY,
-  STRIPE_SIGNING_KEY: process.env.STRIPE_SIGNING_KEY,
-  SENDGRID_API_KEY: process.env.SENDGRID_API_KEY,
-});
-
 const sgMail = require("@sendgrid/mail");
 const {
   millisecondsToMinutes,
@@ -93,32 +86,20 @@ const removeUnnecessaryProductDetails = (products) => {
 };
 
 exports.createPaymentIntent = functions.https.onCall(async (data, context) => {
-  console.log(`**************************************`);
-  console.log({ data, stripe });
   const products = data.order.products;
   const orderProducts = removeUnnecessaryProductDetails(data.order.products);
   data.order.products = orderProducts;
 
-  // const customer = JSON.stringify(data.customer);
-  // const order = JSON.stringify(data.order);
-  // const participants = JSON.stringify(data.participants);
-
   const paymentIntent = await stripe.paymentIntents.create({
     amount: calculateOrderAmount(products),
-    // amount: 1400,
     currency: "usd",
     automatic_payment_methods: {
       enabled: true,
     },
     metadata: {
       docID: data.docID,
-      // customer: customer,
-      // order: order,
-      // participants: participants,
     },
   });
-
-  console.log({ paymentIntent });
 
   return {
     clientSecret: paymentIntent.client_secret,
@@ -180,25 +161,6 @@ const generateImpactedTime = (duration, time) => {
 };
 
 exports.getRemainingCapacity = functions.https.onCall(async (data, context) => {
-  // const msg = {
-  //   to: "marge.consunji@gmail.com",
-  //   from: "mentorshipteamblue@gmail.com",
-  //   subject: "Hopper - Booking Confirmation",
-  //   html: "<strong>and easy to do anywhere, even with Node.js</strong>",
-  //   templateId: "d-da2e6b3a1b434600aefd89e11ead3048",
-  //   dynamicTemplateData: {
-  //     firstname: "Marge",
-  //   },
-  // };
-
-  // sgMail
-  //     .send(msg)
-  //     .then(() => {
-  //       console.log("Email sent");
-  //     })
-  //     .catch((error) => {
-  //       console.error(error);
-  //     });
   try {
     const date = data.date;
     const bookingSnapshot = await admin
@@ -372,7 +334,6 @@ const sendConfirmationEmail = async (docID) => {
   const snapshot = await admin.firestore().collection("bookings").doc(docID).get();
 
   const orderDetails = snapshot.data();
-  console.log("orderdetails", orderDetails);
 
   const { email, first, last } = orderDetails.customer;
   const { bookingDate, products } = orderDetails.order;
@@ -522,15 +483,6 @@ exports.stripeConfirmAddToDB = functions.database
   .onCreate(async (snapshot, context) => {
     const metadata = snapshot.val().data.object.metadata;
     const docID = metadata.docID;
-
-    // const customer = metadata.customer;
-    // const order = metadata.order;
-    // const participants = metadata.participants;
-
-    // const parsedCustomer = JSON.parse(customer);
-    // const parsedOrder = JSON.parse(order);
-    // const parsedParticipants = JSON.parse(participants);
-
     const amount = snapshot.val().data.object.amount_received;
     const transactionID = snapshot.val().data.object.id;
     const receiptURL = snapshot.val().data.object.charges.data[0].receipt_url;
@@ -543,9 +495,6 @@ exports.stripeConfirmAddToDB = functions.database
       .collection("bookings")
       .doc(docID)
       .update({
-        // customer: parsedCustomer,
-        // order: parsedOrder,
-        // participants: parsedParticipants,
         stripe: {
           amount: amount,
           receiptURL: receiptURL,
@@ -569,23 +518,3 @@ exports.stripeConfirmAddToDB = functions.database
       data: snapshot.val().data.object.metadata.docID,
     });
   });
-
-// exports.calculateSessionCapacity = functions.https
-//     .onCall(async (data, context) => {
-//       return {
-//         test: "hello",
-//       };
-//       const date = data.date;
-//       const bookingSnapshot = await admin.firestore()
-//           .collection("bookings")
-//       .where("order.bookingDate", "==", date).get();
-//       const bookingData = bookingSnapshot.docs.map((doc) => ({
-//         id: doc.id,
-//         ...doc.data(),
-//       }));
-//       const productData = await fetchAllProductsFromDb();
-//       return {
-//         bookingData,
-//         productData,
-//       };
-//     });
