@@ -2,12 +2,17 @@ const functions = require("firebase-functions");
 const admin = require("firebase-admin");
 admin.initializeApp();
 
-const {Stripe} = require("stripe");
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
-  apiVersion: "2020-08-27",
-});
+const Stripe = require("stripe");
+const stripe = Stripe(process.env.STRIPE_SECRET_KEY);
 const stripeWebhook = require("stripe")(process.env.STRIPE_WEBHOOK_KEY);
 const endpointSecret = process.env.STRIPE_SIGNING_KEY;
+
+console.log({
+  STRIPE_SECRET_KEY: process.env.STRIPE_SECRET_KEY,
+  STRIPE_WEBHOOK_KEY: process.env.STRIPE_WEBHOOK_KEY,
+  STRIPE_SIGNING_KEY: process.env.STRIPE_SIGNING_KEY,
+  SENDGRID_API_KEY: process.env.SENDGRID_API_KEY,
+});
 
 const sgMail = require("@sendgrid/mail");
 const {
@@ -26,16 +31,16 @@ exports.createStripeCustomer = functions.https.onCall(async (data, context) => {
     email: data.email,
     phone: data.phone,
   });
-  const intent = await stripe.setupIntents.create({customer: customer.id});
+  const intent = await stripe.setupIntents.create({ customer: customer.id });
   await admin.firestore().collection("stripe_customers").add({
     customer_id: customer.id,
     setup_secret: intent.client_secret,
   });
   const snapshot = await admin
-      .firestore()
-      .collection("stripe_customers")
-      .where("customer_id", "==", customer.id)
-      .get();
+    .firestore()
+    .collection("stripe_customers")
+    .where("customer_id", "==", customer.id)
+    .get();
   const snap = snapshot.docs[0].id;
 
   return {
@@ -88,6 +93,8 @@ const removeUnnecessaryProductDetails = (products) => {
 };
 
 exports.createPaymentIntent = functions.https.onCall(async (data, context) => {
+  console.log(`**************************************`);
+  console.log({ data, stripe });
   const products = data.order.products;
   const orderProducts = removeUnnecessaryProductDetails(data.order.products);
   data.order.products = orderProducts;
@@ -111,6 +118,8 @@ exports.createPaymentIntent = functions.https.onCall(async (data, context) => {
     },
   });
 
+  console.log({ paymentIntent });
+
   return {
     clientSecret: paymentIntent.client_secret,
   };
@@ -122,29 +131,29 @@ exports.events = functions.https.onRequest((request, response) => {
   try {
     // Validate the request
     const event = stripeWebhook.webhooks.constructEvent(
-        request.rawBody,
-        sig,
-        endpointSecret,
+      request.rawBody,
+      sig,
+      endpointSecret
     );
 
     // Add the event to the database`
     return admin
-        .database()
-        .ref("/events")
-        .push(event)
-        .then((snapshot) => {
+      .database()
+      .ref("/events")
+      .push(event)
+      .then((snapshot) => {
         // Return a successful response to
         // acknowledge the event was processed successfully
-          return response.json({
-            received: true,
-            ref: snapshot.ref.toString(),
-          });
-        })
-        .catch((err) => {
-        // Catch any errors saving to the database
-          console.error(err);
-          return response.status(500).end();
+        return response.json({
+          received: true,
+          ref: snapshot.ref.toString(),
         });
+      })
+      .catch((err) => {
+        // Catch any errors saving to the database
+        console.error(err);
+        return response.status(500).end();
+      });
   } catch (err) {
     // Signing signature failure, return an error 400
     return response.status(400).end();
@@ -157,14 +166,14 @@ const eachCellTime = (time, plus) => {
   const inseconds = hoursToSeconds(hr) + minutesToSeconds(min) + plus * 1800;
   const newtime = secondsToHours(inseconds);
   if (inseconds % 3600 != 0) {
-    return newtime +":"+ secondsToMinutes(inseconds % 3600);
+    return newtime + ":" + secondsToMinutes(inseconds % 3600);
   }
-  return newtime+ ":00";
+  return newtime + ":00";
 };
 
 const generateImpactedTime = (duration, time) => {
   const sesArr = [];
-  for (let x = -duration/30 + 1; x < duration/30; x++) {
+  for (let x = -duration / 30 + 1; x < duration / 30; x++) {
     sesArr.push(eachCellTime(time, x));
   }
   return sesArr;
@@ -192,10 +201,11 @@ exports.getRemainingCapacity = functions.https.onCall(async (data, context) => {
   //     });
   try {
     const date = data.date;
-    const bookingSnapshot = await admin.firestore()
-        .collection("bookings")
-        .where("order.bookingDate", "==", date)
-        .get();
+    const bookingSnapshot = await admin
+      .firestore()
+      .collection("bookings")
+      .where("order.bookingDate", "==", date)
+      .get();
     const bookingData = bookingSnapshot.docs.map((doc) => {
       return {
         id: doc.id,
@@ -203,20 +213,18 @@ exports.getRemainingCapacity = functions.https.onCall(async (data, context) => {
       };
     });
     const productSnapshot = await admin
-        .firestore()
-        .collection("products")
-        .where("type", "==", "product")
-        .get();
+      .firestore()
+      .collection("products")
+      .where("type", "==", "product")
+      .get();
     const roomsData = {};
-    const rooms = await admin.firestore()
-        .collection("rooms").get();
+    const rooms = await admin.firestore().collection("rooms").get();
     rooms.docs.forEach((doc) => {
-      (roomsData[doc.id] = {...doc.data()});
-    },
-    );
+      roomsData[doc.id] = { ...doc.data() };
+    });
 
     const productData = productSnapshot.docs.map((doc) => {
-      const {room, ...rest} = doc.data();
+      const { room, ...rest } = doc.data();
 
       return {
         id: doc.id,
@@ -225,24 +233,25 @@ exports.getRemainingCapacity = functions.https.onCall(async (data, context) => {
       };
     });
 
-    const timeSnapshot = await admin.firestore()
-        .collection("opentime")
-        .where("date", "==", date)
-        .get();
+    const timeSnapshot = await admin
+      .firestore()
+      .collection("opentime")
+      .where("date", "==", date)
+      .get();
     const timeData = timeSnapshot.docs.map((doc) => {
       return {
         id: doc.id,
         ...doc.data(),
       };
     });
-    const open = (timeData.length == 0) ? "09:00" : timeData[0]?.open;
-    const close = (timeData.length == 0) ? "21:00" : timeData[0]?.close;
+    const open = timeData.length == 0 ? "09:00" : timeData[0]?.open;
+    const close = timeData.length == 0 ? "21:00" : timeData[0]?.close;
     const cell = [];
     const openHour = new Date(`${date}T${open}:00Z`);
     const closeHour = new Date(`${date}T${close}:00Z`);
     const totalOpenTime = closeHour.getTime() - openHour.getTime();
     const noOfCells = millisecondsToMinutes(totalOpenTime) / 30;
-    for (let i=0; i < noOfCells; i++) {
+    for (let i = 0; i < noOfCells; i++) {
       cell.push(eachCellTime(open, i));
     }
 
@@ -254,8 +263,7 @@ exports.getRemainingCapacity = functions.https.onCall(async (data, context) => {
           for (const product of booking.order.products) {
             if (product.room?.name == prod?.room.name) {
               bookedProduct.push(product);
-            } else if (product.room == null &&
-              product.title == "All Day Pass" ) {
+            } else if (product.room == null && product.title == "All Day Pass") {
               bookedProduct.push(product);
             }
           }
@@ -299,8 +307,11 @@ exports.getRemainingCapacity = functions.https.onCall(async (data, context) => {
           }
           originalCellCapacity = Math.min(...impactedCapacityArr);
         }
-        productArr.push({idx: index, time: sess,
-          remainingCapacity: originalCellCapacity});
+        productArr.push({
+          idx: index,
+          time: sess,
+          remainingCapacity: originalCellCapacity,
+        });
       }
       finalObj[`${prod.id}`] = productArr;
     }
@@ -313,10 +324,14 @@ exports.getRemainingCapacity = functions.https.onCall(async (data, context) => {
 const createWaiversInDB = async (bookingId) => {
   try {
     // eslint-disable-next-line max-len
-    const snapshot = await admin.firestore().collection("bookings").doc(bookingId).get();
+    const snapshot = await admin
+      .firestore()
+      .collection("bookings")
+      .doc(bookingId)
+      .get();
 
     // eslint-disable-next-line max-len
-    const bookingData = snapshot ? {docID: snapshot.id, ...snapshot.data()} : null;
+    const bookingData = snapshot ? { docID: snapshot.id, ...snapshot.data() } : null;
     const participants = bookingData.participants;
     const updatedParticipants = [];
 
@@ -359,21 +374,26 @@ const sendConfirmationEmail = async (docID) => {
   const orderDetails = snapshot.data();
   console.log("orderdetails", orderDetails);
 
-  const {email, first, last} = orderDetails.customer;
-  const {bookingDate, products} = orderDetails.order;
-  const {amount, confirmDate, transactionID} = orderDetails.stripe;
+  const { email, first, last } = orderDetails.customer;
+  const { bookingDate, products } = orderDetails.order;
+  const { amount, confirmDate, transactionID } = orderDetails.stripe;
   const participants = orderDetails.participants;
   const formattedConfirmDate = confirmDate.split("GMT+0000")[0];
   const formattedAmount = (amount / 100).toFixed(2);
 
   const baseUri = "https://team-blue-8951b.web.app/waiver";
 
-  const waiverList = participants?.map(({fullName, waiverId}) => (`
+  const waiverList = participants
+    ?.map(
+      ({ fullName, waiverId }) => `
   <li>${fullName} -
   <a href="${baseUri}/docId/waiverId">
-  ${baseUri}/${docID}/${waiverId}</a></li>`)).join("");
+  ${baseUri}/${docID}/${waiverId}</a></li>`
+    )
+    .join("");
 
-  const waiverSection = participants.length ? (`<div>
+  const waiverSection = participants.length
+    ? `<div>
   <h3>Waiver Forms</h3>
   <p>In case you're jumping with 
   other people, here's a list of
@@ -381,13 +401,13 @@ const sendConfirmationEmail = async (docID) => {
   <ol>
   ${waiverList}
   </ol>
-  </div>`) : "";
+  </div>`
+    : "";
 
-  const productList = products.map(({title,
-    price, quantity, time, timeSlot}) => {
-    if (time) {
-      return (
-        `<tr>
+  const productList = products
+    .map(({ title, price, quantity, time, timeSlot }) => {
+      if (time) {
+        return `<tr>
         <td style="padding: 10px; border-bottom: 1px solid gainsboro;">
           <p style="margin-bottom: 3px;">${title}</p>
             <small style="color: grey; 
@@ -399,11 +419,9 @@ const sendConfirmationEmail = async (docID) => {
         <td style="text-align: center; 
         border-bottom: 1px solid gainsboro;">
         ${price}</td>
-      </tr>`
-      );
-    } else {
-      return (
-        `<tr>
+      </tr>`;
+      } else {
+        return `<tr>
         <td style="padding: 10px; border-bottom: 1px solid gainsboro;">
           <p style="margin-bottom: 3px;">${title}</p>
         </td>
@@ -411,10 +429,10 @@ const sendConfirmationEmail = async (docID) => {
         border-bottom: 1px solid gainsboro;">${quantity}</td>
         <td style="text-align: center; 
         border-bottom: 1px solid gainsboro;">${price}</td>
-      </tr>`
-      );
-    }
-  }).join("");
+      </tr>`;
+      }
+    })
+    .join("");
 
   const msgBody = `<html>
   <head>
@@ -481,45 +499,50 @@ const sendConfirmationEmail = async (docID) => {
 
   const msg = {
     to: `${email}`,
-    from: "mentorshipteamblue@gmail.com",
+    from: "p.bergstroem@gmail.com",
     subject: `Hopper - Booking Confirmation for ${first} ${last}`,
     text: "Booking Confirmation Details",
     html: msgBody,
   };
 
-  sgMail
-      .send(msg)
-      .then(() => {}, (error) => {
-        console.error(error);
+  sgMail.send(msg).then(
+    () => {},
+    (error) => {
+      console.error(error);
 
-        if (error.response) {
-          console.error(error.response.body);
-        }
-      });
+      if (error.response) {
+        console.error(error.response.body);
+      }
+    }
+  );
 };
 
 exports.stripeConfirmAddToDB = functions.database
-    .ref("/events/{eventId}")
-    .onCreate(async (snapshot, context) => {
-      const metadata = snapshot.val().data.object.metadata;
-      const docID = metadata.docID;
+  .ref("/events/{eventId}")
+  .onCreate(async (snapshot, context) => {
+    const metadata = snapshot.val().data.object.metadata;
+    const docID = metadata.docID;
 
-      // const customer = metadata.customer;
-      // const order = metadata.order;
-      // const participants = metadata.participants;
+    // const customer = metadata.customer;
+    // const order = metadata.order;
+    // const participants = metadata.participants;
 
-      // const parsedCustomer = JSON.parse(customer);
-      // const parsedOrder = JSON.parse(order);
-      // const parsedParticipants = JSON.parse(participants);
+    // const parsedCustomer = JSON.parse(customer);
+    // const parsedOrder = JSON.parse(order);
+    // const parsedParticipants = JSON.parse(participants);
 
-      const amount = snapshot.val().data.object.amount_received;
-      const transactionID = snapshot.val().data.object.id;
-      const receiptURL = snapshot.val().data.object.charges.data[0].receipt_url;
-      const unixTime = snapshot.val().created;
-      const milliseconds = unixTime * 1000;
-      const dateObject = new Date(milliseconds);
-      const dbTime = dateObject.toString();
-      await admin.firestore().collection("bookings").doc(docID).update({
+    const amount = snapshot.val().data.object.amount_received;
+    const transactionID = snapshot.val().data.object.id;
+    const receiptURL = snapshot.val().data.object.charges.data[0].receipt_url;
+    const unixTime = snapshot.val().created;
+    const milliseconds = unixTime * 1000;
+    const dateObject = new Date(milliseconds);
+    const dbTime = dateObject.toString();
+    await admin
+      .firestore()
+      .collection("bookings")
+      .doc(docID)
+      .update({
         // customer: parsedCustomer,
         // order: parsedOrder,
         // participants: parsedParticipants,
@@ -535,17 +558,17 @@ exports.stripeConfirmAddToDB = functions.database
         },
       });
 
-      const updatedParticipants = await createWaiversInDB(docID);
+    const updatedParticipants = await createWaiversInDB(docID);
 
-      await updateBookingWithWaiversInDB(docID, updatedParticipants);
+    await updateBookingWithWaiversInDB(docID, updatedParticipants);
 
-      await sendConfirmationEmail(docID);
+    await sendConfirmationEmail(docID);
 
-      return console.log({
-        eventId: context.params.eventId,
-        data: snapshot.val().data.object.metadata.docID,
-      });
+    return console.log({
+      eventId: context.params.eventId,
+      data: snapshot.val().data.object.metadata.docID,
     });
+  });
 
 // exports.calculateSessionCapacity = functions.https
 //     .onCall(async (data, context) => {
