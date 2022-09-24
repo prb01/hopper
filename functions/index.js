@@ -3,11 +3,11 @@ const admin = require("firebase-admin");
 admin.initializeApp();
 
 const {Stripe} = require("stripe");
-const stripe = new Stripe(functions.config().stripe.secret, {
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
   apiVersion: "2020-08-27",
 });
-const stripeWebhook = require("stripe")(functions.config().keys.webhooks);
-const endpointSecret = functions.config().keys.signing;
+const stripeWebhook = require("stripe")(process.env.STRIPE_WEBHOOK_KEY);
+const endpointSecret = process.env.STRIPE_SIGNING_KEY;
 
 const sgMail = require("@sendgrid/mail");
 const {
@@ -17,7 +17,7 @@ const {
   secondsToHours,
   secondsToMinutes,
 } = require("date-fns");
-sgMail.setApiKey(functions.config().sendgrid.api);
+sgMail.setApiKey(process.env.SENDGRID_API_KEY);
 
 exports.createStripeCustomer = functions.https.onCall(async (data, context) => {
   const fullName = `${data.firstName} ${data.lastName}`;
