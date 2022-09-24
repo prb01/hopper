@@ -1,0 +1,98 @@
+
+.cell {
+    width: 120px;
+    height: 75px;
+    visibility:hidden;
+    text-align: center;
+    
+}
+th {
+    white-space: nowrap;
+}
+
+/*higher precedence than default reactstrap style*/
+.table-bordered #available {
+    border-left: 1.5px solid green;
+    border-right: 1.5px solid green;
+    border-bottom: 0;
+    background-color: #def5fc;
+}
+
+  .display {
+    visibility: visible;
+}
+
+.table-bordered .overbooked {
+    visibility: visible;
+    border: 1.6px solid red !important;
+}
+.table-bordered .halfbooked {
+    visibility: visible;
+    background-color: #def5fc;
+    border: 1.5px solid orange;
+}
+ 
+td:hover {
+    background-color: #d3d3d3;
+
+}
+td:hover .cell {
+    visibility: visible;
+}
+
+.section {
+    overflow-x: scroll;
+    overflow-y: scroll;
+    height: 60%;
+  }
+
+.table thead .tableh {
+    position: sticky;
+    top: 0;
+    border: 1px solid black;
+}
+
+.tablegap:before {
+    line-height:1em;
+    content:"-";
+    color:white; /* to hide text */
+    display:block;
+}
+
+.table-bordered thead th {
+    background-color: #d3d3d3;
+}
+
+.fs-6 {
+    font-size: 0.75rem;
+}
+
+.colordiv {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+}
+
+.colorindicate {
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+
+}
+
+/*table header border sticky*/
+.tableh:after,
+ .tableh:before {
+   content: '';
+   position: absolute;
+   left: 0;
+   width: 100%;
+ }
+ .tableh:before {
+   top: -1px;
+   border-top: 1px solid black;
+ }
+ .tableh:after {
+   bottom: -1px;
+   border-bottom: 2px solid black;
+ }

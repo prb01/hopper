@@ -1,0 +1,20 @@
+.react-calendar {
+  width: 100%;
+  border: none;
+}
+.react-calendar button {
+  border-radius: 0px;
+}
+abbr[title] {
+  text-decoration: none;
+  cursor: default;
+}
+.react-calendar__tile--now {
+  font-weight: bold;
+  background: none;
+  color: rgb(0, 110, 220);
+}
+.react-calendar button:enabled:hover:not(.react-calendar__tile--active) {
+  background: none;
+  outline: 1px solid grey;
+}

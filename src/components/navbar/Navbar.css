@@ -1,0 +1,56 @@
+.navbar-admin {
+    height: 60px;
+    padding-top: 3px;
+}
+
+.navend {
+    
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+}
+.navend > * {
+    font-size: 1rem;
+    color:  white!important;
+    margin-right: 2rem;
+}
+
+.n-text {
+    padding-top: 0;
+    color: white;
+}
+.nt {
+    line-height: 0.75rem;
+}
+.nt:hover {
+    background-color: #0a0b0c;
+}
+
+.dropdown-menu {
+    background-color: #343a40;
+    color: white !important;
+}
+.dropdown-menu:hover {
+    background-color: #0a0b0c;
+}
+
+/* .dominant{
+    position: relative;
+}
+
+.passive{
+    position: absolute;
+    top: 60px;
+    right: 15px;
+}
+
+.matchWidth{
+    padding-left: 62px;
+    padding-right: 62px;
+} */
+
+@media screen and (max-width: 720px) {
+    .nt {
+        display: none;
+    }
+}

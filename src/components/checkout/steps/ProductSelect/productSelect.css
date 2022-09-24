@@ -1,0 +1,14 @@
+.accordion-chevron {
+  transition: transform 0.2s linear;
+}
+.accordion-chevron.open {
+  transform: rotate(-180deg);
+}
+.accordion-image {
+  object-fit: fill;
+  max-width: 100px;
+  width: 100px;
+}
+.product-checkout-quantity {
+  max-width: 130px;
+}
